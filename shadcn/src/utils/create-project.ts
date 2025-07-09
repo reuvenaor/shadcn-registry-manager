@@ -5,7 +5,8 @@ import { getPackageManager } from "@/src/utils/get-package-manager"
 import { handleError } from "@/src/utils/handle-error"
 import { logger } from "@/src/utils/logger"
 import { spinner } from "@/src/utils/spinner"
-import { execa } from "execa"
+import { secureExeca } from "@/src/utils/secure-exec"
+import { validateWorkingDirectory } from "@/src/utils/security"
 import fs from "fs-extra"
 import prompts from "prompts"
 import { z } from "zod"
@@ -114,17 +115,19 @@ async function createProjectInternal(
 
   const projectPath = `${options.cwd}/${projectName}`
 
-  // Check if path is writable.
+  // Validate and check if path is writable.
   try {
-    await fs.access(options.cwd, fs.constants.W_OK)
+    const safeCwd = validateWorkingDirectory(options.cwd)
+    options.cwd = safeCwd
+    await fs.access(safeCwd, fs.constants.W_OK)
   } catch (error) {
     logger.break()
-    logger.error(`The path ${options.cwd} is not writable.`)
+    logger.error(`The path ${options.cwd} is not writable or secure.`)
     logger.error(
       `It is likely you do not have write permissions for this folder or the path ${options.cwd} does not exist.`
     )
     logger.break()
-    throw new Error(`The path ${options.cwd} is not writable`)
+    throw new Error(`The path ${options.cwd} is not writable or secure`)
   }
 
   if (fs.existsSync(path.resolve(options.cwd, projectName, "package.json"))) {
@@ -196,7 +199,7 @@ async function createNextProject(
   }
 
   try {
-    await execa(
+    await secureExeca(
       "npx",
       [`create-next-app@${options.version}`, projectPath, "--silent", ...args],
       {
@@ -240,7 +243,7 @@ async function createMonorepoProject(
     // Write the tar file
     const tarPath = path.resolve(templatePath, "template.tar.gz")
     await fs.writeFile(tarPath, Buffer.from(await response.arrayBuffer()))
-    await execa("tar", [
+    await secureExeca("tar", [
       "-xzf",
       tarPath,
       "-C",
@@ -253,19 +256,22 @@ async function createMonorepoProject(
     await fs.remove(templatePath)
 
     // Run install.
-    await execa(options.packageManager, ["install"], {
-      cwd: projectPath,
-    })
+    if (options.packageManager === 'npm' || options.packageManager === 'pnpm') {
+      await secureExeca(options.packageManager, ["install"], {
+        cwd: projectPath,
+      })
+    } else {
+      throw new Error(`Package manager not supported for monorepo: ${options.packageManager}`)
+    }
 
     // Try git init.
-    const cwd = process.cwd()
-    await execa("git", ["--version"], { cwd: projectPath })
-    await execa("git", ["init"], { cwd: projectPath })
-    await execa("git", ["add", "-A"], { cwd: projectPath })
-    await execa("git", ["commit", "-m", "Initial commit"], {
+    await secureExeca("git", ["--version"], { cwd: projectPath })
+    await secureExeca("git", ["init"], { cwd: projectPath })
+    await secureExeca("git", ["add", "-A"], { cwd: projectPath })
+    await secureExeca("git", ["commit", "-m", "Initial commit"], {
       cwd: projectPath,
     })
-    await execa("cd", [cwd])
+    // Note: Removed the 'cd' command as it's not a valid executable
 
     createSpinner?.succeed('Creating a new Next.js monorepo complete')
   } catch (error) {
