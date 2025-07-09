@@ -6,6 +6,7 @@ import { registryItemSchema } from "@/src/registry/schema"
 import { ServerRequest, ServerNotification } from "@modelcontextprotocol/sdk/types"
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
 import { executeInitOptionsSchema } from "@/src/schemas/init.schemas"
+import { getSafeWorkspaceCwd } from "@/src/utils/security"
 
 const projectConfigSchema = registryItemSchema.pick({
   tailwind: true,
@@ -15,9 +16,10 @@ export async function executeInit(
   args: z.infer<typeof executeInitOptionsSchema>,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
-  const { cwd, style, baseColor, srcDir, cssVariables, force, template } =
+  const { cwd: rawCwd, style, baseColor, srcDir, cssVariables, force, template } =
     executeInitOptionsSchema.parse(args)
 
+  const cwd = getSafeWorkspaceCwd(rawCwd)
   const resolvedCwd = path.resolve(cwd)
 
   try {
