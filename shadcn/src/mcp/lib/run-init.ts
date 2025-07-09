@@ -22,7 +22,6 @@ import {
 } from "@/src/utils/get-project-info"
 import { spinner } from "@/src/utils/spinner"
 import { updateTailwindContent } from "@/src/utils/updaters/update-tailwind-content"
-import prompts from "prompts"
 import { z } from "zod"
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
 import { ServerRequest, ServerNotification } from "@modelcontextprotocol/sdk/types"
@@ -121,19 +120,6 @@ export async function runInit(
         hooks: components.replace(/\/components$/, "/hooks"),
       },
     })
-  }
-
-  if (!options.yes) {
-    const { proceed } = await prompts({
-      type: "confirm",
-      name: "proceed",
-      message: `Write configuration to "components.json". Proceed?`,
-      initial: true,
-    })
-
-    if (!proceed) {
-      throw new Error("User cancelled configuration")
-    }
   }
 
   // Write components.json.
