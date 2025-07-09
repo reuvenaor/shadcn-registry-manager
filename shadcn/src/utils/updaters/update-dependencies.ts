@@ -5,7 +5,7 @@ import { getPackageInfo } from "@/src/utils/get-package-info"
 import { getPackageManager } from "@/src/utils/get-package-manager"
 import { logger } from "@/src/utils/logger"
 import { spinner } from "@/src/utils/spinner"
-import { execa } from "execa"
+import { secureExeca, secureNpmInstall } from "@/src/utils/secure-exec"
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
 import { ServerRequest, ServerNotification } from "@modelcontextprotocol/sdk/types"
 import { z } from "zod"
@@ -97,11 +97,11 @@ async function installWithPackageManager(
   flag?: string
 ) {
   if (packageManager === "pnpm") {
-    return installWithPnpm(dependencies, devDependencies, cwd, flag)
+    return secureNpmInstall("pnpm", dependencies, devDependencies, cwd, flag ? [`--${flag}`] : [])
   }
 
   if (packageManager === "npm") {
-    return installWithNpm(dependencies, devDependencies, cwd, flag)
+    return secureNpmInstall("npm", dependencies, devDependencies, cwd, flag ? [`--${flag}`] : [])
   }
 
   if (packageManager === "deno") {
@@ -112,73 +112,19 @@ async function installWithPackageManager(
     return installWithExpo(dependencies, devDependencies, cwd)
   }
 
+  // Handle other package managers with secure execution
   if (dependencies?.length) {
-    await execa(packageManager, ["add", ...dependencies], {
+    await secureExeca(packageManager as string, ["add", ...dependencies], {
       cwd,
     })
   }
 
   if (devDependencies?.length) {
-    await execa(packageManager, ["add", "-D", ...devDependencies], { cwd })
+    await secureExeca(packageManager as string, ["add", "-D", ...devDependencies], { cwd })
   }
 }
 
-async function installWithNpm(
-  dependencies: string[],
-  devDependencies: string[],
-  cwd: string,
-  flag?: string
-) {
-  if (dependencies.length) {
-    await execa(
-      "npm",
-      [
-        "install",
-        "--legacy-peer-deps",
-        ...(flag ? [`--${flag}`] : []),
-        ...dependencies,
-      ],
-      { cwd }
-    )
-  }
-
-  if (devDependencies.length) {
-    await execa(
-      "npm",
-      [
-        "install",
-        "--legacy-peer-deps",
-        ...(flag ? [`--${flag}`] : []),
-        "-D",
-        ...devDependencies,
-      ],
-      { cwd }
-    )
-  }
-}
-
-async function installWithPnpm(
-  dependencies: string[],
-  devDependencies: string[],
-  cwd: string,
-  flag?: string
-) {
-  if (dependencies.length) {
-    await execa(
-      "pnpm",
-      ["install", ...(flag ? [`--${flag}`] : []), ...dependencies],
-      { cwd }
-    )
-  }
-
-  if (devDependencies.length) {
-    await execa(
-      "pnpm",
-      ["install", ...(flag ? [`--${flag}`] : []), "-D", ...devDependencies],
-      { cwd }
-    )
-  }
-}
+// Note: installWithNpm and installWithPnpm are now replaced by secureNpmInstall
 
 async function installWithDeno(
   dependencies: string[],
@@ -186,13 +132,13 @@ async function installWithDeno(
   cwd: string
 ) {
   if (dependencies?.length) {
-    await execa("deno", ["add", ...dependencies.map((dep) => `pnpm:${dep}`)], {
+    await secureExeca("deno", ["add", ...dependencies.map((dep) => `pnpm:${dep}`)], {
       cwd,
     })
   }
 
   if (devDependencies?.length) {
-    await execa(
+    await secureExeca(
       "deno",
       ["add", "-D", ...devDependencies.map((dep) => `pnpm:${dep}`)],
       { cwd }
@@ -206,11 +152,11 @@ async function installWithExpo(
   cwd: string
 ) {
   if (dependencies.length) {
-    await execa("npx", ["expo", "install", ...dependencies], { cwd })
+    await secureExeca("npx", ["expo", "install", ...dependencies], { cwd })
   }
 
   if (devDependencies.length) {
-    await execa("npx", ["expo", "install", "-- -D", ...devDependencies], {
+    await secureExeca("npx", ["expo", "install", "-- -D", ...devDependencies], {
       cwd,
     })
   }
