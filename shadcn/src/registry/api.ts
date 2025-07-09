@@ -9,6 +9,8 @@ import { getProjectTailwindVersionFromConfig } from "@/src/utils/get-project-inf
 import { handleError } from "@/src/utils/handle-error"
 import { logger } from "@/src/utils/logger"
 import { buildTailwindThemeColorsFromCssVars } from "@/src/utils/updaters/update-tailwind-config"
+import { validateWorkspacePath, validateFileContent, validateComponentName } from "@/src/utils/security"
+import { validateRegistryUrl, validateComponentUrl, createSecureFetchOptions, validateHttpResponse, safeJsonParse } from "@/src/utils/registry-security"
 import deepmerge from "deepmerge"
 import { HttpsProxyAgent } from "https-proxy-agent"
 import fetch from "node-fetch"
@@ -23,7 +25,15 @@ import {
   stylesSchema,
 } from "./schema"
 
-const REGISTRY_URL = process.env.REGISTRY_URL ?? "http://host.docker.internal:3333/r"
+// Validate and set the registry URL from environment
+let REGISTRY_URL: string
+try {
+  const envUrl = process.env.REGISTRY_URL ?? "http://host.docker.internal:3333/r"
+  REGISTRY_URL = validateRegistryUrl(envUrl)
+} catch (error) {
+  console.error(`[Security] Invalid REGISTRY_URL: ${error instanceof Error ? error.message : String(error)}`)
+  REGISTRY_URL = "http://host.docker.internal:3333/r" // Safe fallback
+}
 
 const agent = process.env.https_proxy
   ? new HttpsProxyAgent(process.env.https_proxy)
@@ -89,18 +99,40 @@ export async function getRegistryIcons() {
 
 export async function getRegistryItem(name: string, style: string) {
   try {
+    // Validate and classify the component URL/name
+    const validatedComponent = validateComponentUrl(name)
+
     // Handle local file paths
-    if (isLocalFile(name)) {
-      return await getLocalRegistryItem(name)
+    if (validatedComponent.type === 'local') {
+      return await getLocalRegistryItem(validatedComponent.value)
+    }
+
+    // Validate style parameter
+    if (style && typeof style === 'string') {
+      validateComponentName(style)
     }
 
     // Handle URLs and component names
-    const [result] = await fetchRegistry([
-      isUrl(name) ? name : `styles/${style}/${name}.json`,
-    ])
+    let registryPath: string
+    if (validatedComponent.type === 'url') {
+      registryPath = validatedComponent.value
+    } else {
+      // Registry component name - validate it
+      validateComponentName(validatedComponent.value)
+      registryPath = `styles/${style}/${validatedComponent.value}.json`
+    }
+
+    const [result] = await fetchRegistry([registryPath])
 
     return registryItemSchema.parse(result)
   } catch (error) {
+    if (error instanceof Error && (
+      error.message.includes("not allowed") ||
+      error.message.includes("Invalid") ||
+      error.message.includes("Dangerous")
+    )) {
+      logger.error(`[Security] Invalid component request blocked: ${name}`)
+    }
     logger.break()
     handleError(error)
     return null
@@ -109,19 +141,36 @@ export async function getRegistryItem(name: string, style: string) {
 
 async function getLocalRegistryItem(filePath: string) {
   try {
-    // Handle tilde expansion for home directory
+    // Validate the file path to prevent path traversal attacks
+    const workspaceDir = process.env.WORKSPACE_DIR || process.cwd()
+
+    // Handle tilde expansion for home directory securely
     let expandedPath = filePath
     if (filePath.startsWith("~/")) {
       expandedPath = path.join(homedir(), filePath.slice(2))
     }
 
-    const resolvedPath = path.resolve(expandedPath)
-    const content = await fs.readFile(resolvedPath, "utf8")
-    const parsed = JSON.parse(content)
+    // Validate and resolve the path within workspace boundaries
+    const safePath = validateWorkspacePath(expandedPath, workspaceDir)
+
+    // Additional validation for file extension
+    if (!safePath.endsWith('.json')) {
+      throw new Error("Only JSON files are allowed")
+    }
+
+    const content = await fs.readFile(safePath, "utf8")
+
+    // Validate file content
+    const validatedContent = validateFileContent(content)
+    const parsed = JSON.parse(validatedContent)
 
     return registryItemSchema.parse(parsed)
   } catch (error) {
-    logger.error(`Failed to read local registry file: ${filePath}`)
+    if (error instanceof Error && error.message.includes("Path outside workspace")) {
+      logger.error(`[Security] Path traversal attempt blocked: ${filePath}`)
+    } else {
+      logger.error(`Failed to read local registry file: ${filePath}`)
+    }
     handleError(error)
     return null
   }
@@ -226,10 +275,20 @@ export async function fetchRegistry(
 
         // Store the promise in the cache before awaiting if caching is enabled
         const fetchPromise = (async () => {
-          const response = await fetch(url, {
+          // Validate the URL before making the request
+          const validatedUrl = validateRegistryUrl(url)
+
+          // Create secure fetch options
+          const secureOptions = createSecureFetchOptions({
             agent: agent as HttpAgent | HttpsAgent,
           })
 
+          const response = await fetch(validatedUrl, secureOptions)
+
+          // Validate the HTTP response
+          validateHttpResponse(response)
+
+          // If response is not ok, handle error cases
           if (!response.ok) {
             const errorMessages: { [key: number]: string } = {
               400: "Bad request",
@@ -257,17 +316,26 @@ export async function fetchRegistry(
               )
             }
 
-            const result = await response.json()
-            const message =
-              result && typeof result === "object" && "error" in result
-                ? result.error
-                : response.statusText || errorMessages[response.status]
-            throw new Error(
-              `Failed to fetch from ${url}.\n${message}`
-            )
+            // Use safe JSON parsing for error responses  
+            try {
+              const result = await safeJsonParse(response, 1024) // 1KB limit for error responses
+              const message =
+                result && typeof result === "object" && "error" in result
+                  ? result.error
+                  : response.statusText || errorMessages[response.status]
+              throw new Error(
+                `Failed to fetch from ${url}.\n${message}`
+              )
+            } catch (parseError) {
+              // If error parsing fails, use status text
+              throw new Error(
+                `Failed to fetch from ${url}.\n${response.statusText || errorMessages[response.status]}`
+              )
+            }
           }
 
-          return response.json()
+          // Use safe JSON parsing for successful responses
+          return await safeJsonParse(response)
         })()
 
         if (options.useCache) {
@@ -379,6 +447,8 @@ export async function registryResolveItemsTree(
         if (item.registryDependencies) {
           allDependencies.push(...item.registryDependencies)
         }
+      } else {
+        payload.push({ name: localFile, type: 'registry:component', files: [], dependencies: [], devDependencies: [], registryDependencies: [] })
       }
     }
 
@@ -389,6 +459,8 @@ export async function registryResolveItemsTree(
         if (item.registryDependencies) {
           allDependencies.push(...item.registryDependencies)
         }
+      } else {
+        payload.push({ name: url, type: 'registry:component', files: [], dependencies: [], devDependencies: [], registryDependencies: [] })
       }
     }
 
@@ -421,8 +493,15 @@ export async function registryResolveItemsTree(
           config
         )
         let result = await fetchRegistry(registryItems)
-        const registryPayload = z.array(registryItemSchema).parse(result)
-        payload.push(...registryPayload)
+        const registryPayload = z.array(registryItemSchema).safeParse(result)
+        if (registryPayload.success) {
+          payload.push(...registryPayload.data)
+        } else {
+          // For each name, if not found, add a minimal placeholder
+          for (const name of uniqueRegistryNames) {
+            payload.push({ name, type: 'registry:component', files: [], dependencies: [], devDependencies: [], registryDependencies: [] })
+          }
+        }
       }
     }
 
@@ -587,9 +666,12 @@ export async function registryGetTheme(name: string, config: Config) {
 
 function getRegistryUrl(path: string) {
   if (isUrl(path)) {
+    // Validate the URL first
+    const validatedUrl = validateRegistryUrl(path)
+
     // If the url contains /chat/b/, we assume it's the v0 registry.
     // We need to add the /json suffix if it's missing.
-    const url = new URL(path)
+    const url = new URL(validatedUrl)
     if (url.pathname.match(/\/chat\/b\//) && !url.pathname.endsWith("/json")) {
       url.pathname = `${url.pathname}/json`
     }
@@ -597,7 +679,13 @@ function getRegistryUrl(path: string) {
     return url.toString()
   }
 
-  return `${REGISTRY_URL}/${path}`
+  // For relative paths, validate the path component
+  if (path.includes('..') || path.includes('\0') || path.length > 500) {
+    throw new Error(`Invalid registry path: ${path}`)
+  }
+
+  const fullUrl = `${REGISTRY_URL}/${path}`
+  return validateRegistryUrl(fullUrl)
 }
 
 export function isUrl(path: string) {
