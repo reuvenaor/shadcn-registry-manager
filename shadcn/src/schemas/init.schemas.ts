@@ -30,6 +30,7 @@ export const initOptionsSchema = z.object({
         message: "Invalid template. Please use 'next' or 'next-monorepo'.",
       }
     ).describe("The project template to use."),
+  name: z.string().optional().describe("The name of the project."),
   baseColor: z
     .string()
     .optional()

@@ -8,7 +8,6 @@ import { spinner } from "@/src/utils/spinner"
 import { secureExeca } from "@/src/utils/secure-exec"
 import { validateWorkingDirectory } from "@/src/utils/security"
 import fs from "fs-extra"
-import prompts from "prompts"
 import { z } from "zod"
 import { initOptionsSchema } from "@/src/schemas/init.schemas"
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
@@ -81,32 +80,8 @@ async function createProjectInternal(
   }
 
   if (!options.force) {
-    const { type, name } = await prompts([
-      {
-        type: options.template || isRemoteComponent ? null : "select",
-        name: "type",
-        message: `The path ${options.cwd} does not contain a package.json file.\n  Would you like to start a new project?`,
-        choices: [
-          { title: "Next.js", value: "next" },
-          { title: "Next.js (Monorepo)", value: "next-monorepo" },
-        ],
-        initial: 0,
-      },
-      {
-        type: "text",
-        name: "name",
-        message: "What is your project named?",
-        initial: projectName,
-        format: (value: string) => value.trim(),
-        validate: (value: string) =>
-          value.length > 128
-            ? `Name should be less than 128 characters.`
-            : true,
-      },
-    ])
-
-    template = type ?? template
-    projectName = name
+    template = (options?.template ?? template) as keyof typeof TEMPLATES
+    projectName = (options?.name ?? projectName) as string
   }
 
   const packageManager = await getPackageManager(options.cwd, {

@@ -110,15 +110,6 @@ export async function updateFiles(
 
     if (existingFile && !validatedOptions.overwrite) {
       filesCreatedSpinner.stop()
-      // if (options.rootSpinner) {
-      //   options.rootSpinner.stop()
-      // }
-      // const { overwrite } = await prompts({
-      //   type: "confirm",
-      //   name: "overwrite",
-      //   message: `The file ${fileName} already exists. Would you like to overwrite?`,
-      //   initial: false,
-      // })
       await extra?.sendNotification({
         method: "notifications/message",
         params: {
@@ -129,9 +120,6 @@ export async function updateFiles(
         },
       })
       filesCreatedSpinner?.start()
-      // if (options.rootSpinner) {
-      //   options.rootSpinner.start()
-      // }   
     }
 
     // Create the target directory if it doesn't exist.
