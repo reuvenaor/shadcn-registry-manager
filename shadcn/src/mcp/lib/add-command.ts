@@ -1,0 +1,245 @@
+import path from "path"
+import { addOptionsSchema } from "@/src/schemas/add.schemas"
+import { executeAddCommandOptionsSchema } from "@/src/schemas/add.schemas"
+import { runInit } from "@/src/mcp/lib/run-init"
+import { preFlightAdd } from "@/src/preflights/preflight-add"
+import { getRegistryIndex, getRegistryItem } from "@/src/registry/api"
+import { registryItemTypeSchema } from "@/src/registry/schema"
+import { isLocalFile, isUrl } from "@/src/registry/utils"
+import { addComponents } from "@/src/utils/add-components"
+import { createProjectMcp } from "@/src/utils/create-project"
+import * as ERRORS from "@/src/utils/errors"
+import { getConfig } from "@/src/utils/get-config"
+import { getProjectInfo } from "@/src/utils/get-project-info"
+import { updateAppIndex } from "@/src/utils/update-app-index"
+import { z } from "zod"
+import { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types"
+import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
+import { spinner } from "@/src/utils/spinner"
+import fs from "fs"
+
+const DEPRECATED_COMPONENTS = [
+  {
+    name: "toast",
+    deprecatedBy: "sonner",
+    message:
+      "The toast component is deprecated. Use the sonner component instead.",
+  },
+  {
+    name: "toaster",
+    deprecatedBy: "sonner",
+    message:
+      "The toaster component is deprecated. Use the sonner component instead.",
+  },
+]
+
+// MCP-safe version of the add command that doesn't call process.exit() or prompt users
+export async function executeAddCommand(
+  options: z.infer<typeof executeAddCommandOptionsSchema>,
+  extra?: RequestHandlerExtra<ServerRequest, ServerNotification>
+) {
+  try {
+    const validatedOptions = executeAddCommandOptionsSchema.parse(options)
+    const addSpinner = spinner("Starting add command", extra, "add-command", 100).start()
+    addSpinner.progress(0, "Starting add command")
+
+    if (validatedOptions.cwd !== "/workspace") {
+      if (fs.existsSync("/workspace")) {
+        console.warn(
+          `[MCP] Overriding cwd in executeAddCommand from '${validatedOptions.cwd}' to '/workspace' (MCP Docker convention)`
+        )
+        validatedOptions.cwd = "/workspace"
+      } else {
+        console.warn(
+          `[MCP] /workspace does not exist, using provided cwd '${validatedOptions.cwd}'`
+        )
+        if (!process.env.WORKSPACE_DIR) {
+          throw new Error("WORKSPACE_DIR is not set")
+        }
+        validatedOptions.cwd = process.env.WORKSPACE_DIR
+      }
+    }
+
+    const addOptions = addOptionsSchema.parse({
+      components: validatedOptions.components,
+      cwd: path.resolve(validatedOptions.cwd),
+      yes: true, // Always skip confirmation prompts in MCP context
+      overwrite: validatedOptions.overwrite,
+      all: false,
+      silent: true, // Run in silent mode for MCP
+      srcDir: validatedOptions.srcDir,
+      cssVariables: validatedOptions.cssVariables,
+      initOptions: validatedOptions.initOptions,
+    })
+    console.log("[MCP] Parsed addOptions", addOptions)
+
+    // Handle URL/local file components
+    let itemType: z.infer<typeof registryItemTypeSchema> | undefined
+    if (
+      addOptions.components &&
+      addOptions.components.length > 0 &&
+      (isUrl(addOptions.components[0]) || isLocalFile(addOptions.components[0]))
+    ) {
+      const item = await getRegistryItem(addOptions.components[0], "")
+      itemType = item?.type
+      console.log("[MCP] Registry item type", itemType)
+    }
+
+    // For MCP, we always proceed with style/theme installation without prompting
+    // No need to prompt for confirmation since we're in silent mode
+
+    // If no components specified, get all available components (for MCP we'll error instead)
+    if (!addOptions.components?.length) {
+      const registryIndex = await getRegistryIndex()
+      if (!registryIndex) {
+        throw new Error("Failed to fetch registry index.")
+      }
+
+      // For MCP, we don't prompt - we should have components specified
+      throw new Error("No components specified to add.")
+    }
+
+    addSpinner.progress(20, "Getting project information")
+
+    console.log("[MCP] About to call getProjectInfo")
+    const projectInfo = await getProjectInfo(addOptions.cwd)
+    console.log("[MCP] Got projectInfo", projectInfo)
+
+    if (projectInfo?.tailwindVersion === "v4") {
+      const deprecatedComponents = DEPRECATED_COMPONENTS.filter((component) =>
+        addOptions.components?.includes(component.name)
+      )
+
+      if (deprecatedComponents?.length) {
+        const messages = deprecatedComponents.map(
+          (component) => component.message
+        )
+        throw new Error(`Deprecated components found: ${messages.join(", ")}`)
+      }
+    }
+
+    addSpinner.progress(30, "Running preflight checks")
+
+    let { errors, config } = await preFlightAdd(addOptions)
+
+    addSpinner.progress(60, "preFlightAdd complete")
+    // No components.json file. Run init automatically without prompting.
+    if (errors[ERRORS.MISSING_CONFIG]) {
+      addSpinner.fail("Running runInit for missing config")
+      config = await runInit({
+        cwd: addOptions.cwd,
+        yes: addOptions.initOptions?.yes || true,
+        force: addOptions.initOptions?.force || false,
+        defaults: false,
+        skipPreflight: addOptions.initOptions?.skipPreflight || false,
+        silent: true,
+        isNewProject: false,
+        srcDir: addOptions.srcDir,
+        cssVariables: addOptions.cssVariables || true,
+        style: addOptions.initOptions?.style || "none",
+        flag: addOptions.initOptions?.flag,
+        tailwindBaseColor: addOptions.initOptions?.tailwindBaseColor,
+      })
+      addSpinner.progress(70, "runInit complete")
+    }
+
+    let shouldUpdateAppIndex = false
+    if (errors[ERRORS.MISSING_DIR_OR_EMPTY_PROJECT]) {
+      const { projectPath, template } = await createProjectMcp({
+        cwd: addOptions.cwd,
+        force: addOptions.overwrite || false,
+        srcDir: addOptions.srcDir,
+        components: addOptions.components,
+        style: addOptions.initOptions?.style || "none",
+        cssVariables: addOptions.cssVariables || true,
+        yes: addOptions.initOptions?.yes || true,
+        defaults: addOptions.initOptions?.defaults || false,
+        silent: addOptions.initOptions?.silent || true,
+        isNewProject: addOptions.initOptions?.isNewProject || true,
+        flag: addOptions.initOptions?.flag,
+        tailwindBaseColor: addOptions.initOptions?.tailwindBaseColor,
+        skipPreflight: addOptions.initOptions?.skipPreflight || false,
+      }, extra)
+      addSpinner.progress(80, "createProject complete")
+
+      if (!projectPath) {
+        throw new Error("Failed to create project")
+      }
+
+      addOptions.cwd = projectPath
+
+      if (template === "next-monorepo") {
+        addOptions.cwd = path.resolve(addOptions.cwd, "apps/web")
+        config = await getConfig(addOptions.cwd)
+      } else {
+        config = await runInit({
+          cwd: addOptions.cwd,
+          yes: addOptions.initOptions?.yes || true,
+          force: addOptions.initOptions?.force || false,
+          defaults: addOptions.initOptions?.defaults || false,
+          skipPreflight: addOptions.initOptions?.skipPreflight || false,
+          silent: addOptions.initOptions?.silent || true,
+          isNewProject: addOptions.initOptions?.isNewProject || true,
+          srcDir: addOptions.srcDir,
+          cssVariables: addOptions.cssVariables || true,
+          style: addOptions.initOptions?.style || "none",
+          flag: addOptions.initOptions?.flag,
+          tailwindBaseColor: addOptions.initOptions?.tailwindBaseColor,
+        })
+
+        shouldUpdateAppIndex =
+          addOptions.components?.length === 1 &&
+          !!addOptions.components[0].match(/\/chat\/b\//)
+      }
+    }
+
+    if (!config) {
+      console.log("[MCP] No config found after preflight and init checks.")
+      throw new Error(`Failed to read or create a config at ${addOptions.cwd}.`)
+    }
+
+    addSpinner.progress(60, `Adding components: ${addOptions.components?.join(", ")}`)
+
+    console.log("[MCP] About to call addComponents with options:", addOptions)
+    const { filesCreated, filesModified } = await addComponents(
+      addOptions.components,
+      config,
+      addOptions,
+      extra
+    )
+
+
+
+    addSpinner.progress(90, "Finalizing installation")
+
+    // If we're adding a single component and it's from the v0 registry,
+    // let's update the app/page.tsx file to import the component.
+    if (shouldUpdateAppIndex && addOptions.components?.[0]) {
+      addSpinner.progress(95, "Updating app/page.tsx")
+      await updateAppIndex(addOptions.components[0], config)
+    }
+
+    addSpinner.progress(100, "Installation complete!")
+    addSpinner.succeed("Installation complete!")
+
+    return {
+      success: true,
+      message: `Successfully added components ${addOptions.components?.join(
+        ", "
+      )} to your project at ${addOptions.cwd}`,
+      componentsAdded: addOptions.components,
+      filesCreated,
+      filesModified,
+    }
+  } catch (error) {
+    const failSpinner = spinner("Add command failed", extra, "add-command").fail(
+      error instanceof Error ? error.message : String(error)
+    )
+    failSpinner.fail(`Failed to add components: ${error instanceof Error ? error.message : String(error)}`)
+
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`Failed to add components: ${String(error)}`)
+  }
+} 
