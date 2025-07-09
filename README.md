@@ -6,46 +6,44 @@ This project provides an **MCP (Model Context Protocol) server** for the [shadcn
 
 This MCP server exposes shadcn CLI operations as MCP tools, so you (or an AI agent) can:
 - Initialize a project
-- Add components from the shadcn registry
+- Add components from the shadcn registry **including block components**
 - List and fetch registry items
 - Run all shadcn CLI workflows remotely
 
-## Usage Modes
+## Usage
 
-You can run the MCP server in two main ways:
-
-### 1. Docker (mcp-shadcn)
+### Docker (reuvenaor/shadcn-registry-manager):
 
 Run the MCP server in a container, mounting your project directory:
 
-```bash
-docker run --rm -it \
-  --mount type=bind,src=/path/to/your/project,dst=/workspace \
-  -e REGISTRY_URL=https://ui.shadcn.com/r \
-  -e STYLE=new-york \
-  mcp-shadcn
+Add the following to your `mcp.json` file:
+
+```json
+   "shadcn-registry-manager": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--mount",
+        "type=bind,src=<your-project-path>,dst=/workspace",
+        "-e", 
+        "REGISTRY_URL=https://ui.shadcn.com/r",
+        "-e", 
+        "STYLE=new-york",
+        "reuvenaor/shadcn-registry-manager"
+      ],
+    },
 ```
 
-- The server will listen for MCP requests and execute shadcn CLI commands inside the container.
-- You can customize the registry URL and style via environment variables.
-- See the `mcp-shadcn` entry in `mcp.json` for the exact Docker invocation.
+### Mounting:
+- **your-project-path** - is the path to your project directory.
+- **workspace** - is the path to the workspace directory inside the container.
 
-### 2. Local Node (shadcn-local)
+### ENV Variables:
+- **REGISTRY_URL** - is the URL of the shadcn registry - https://ui.shadcn.com/r
+- **STYLE** - is the style of the shadcn registry - new-york
 
-Run the MCP server directly with Node.js (useful for local development):
-
-```bash
-npx tsx shadcn/src/index.ts
-```
-
-Or, as defined in `mcp.json`:
-
-```bash
-/Users/reuvennaor/.nvm/versions/node/v20.17.0/bin/node /Library/Projects/mcp-docker/shadcn/dist/index.js
-```
-
-- Set `REGISTRY_URL` and `WORKSPACE_DIR` as needed.
-- This will start the MCP server and allow you to send MCP requests to it.
 
 ## Example MCP Tools
 - `get_init_instructions`: Get project initialization instructions
