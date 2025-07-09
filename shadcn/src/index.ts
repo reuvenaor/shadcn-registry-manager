@@ -13,6 +13,7 @@ import {
   executeInitOptionsSchema,
   getItemOptionsSchema,
 } from '@/src/schemas';
+import { validateRegistryUrl } from "./utils/registry-security";
 
 async function main() {
   console.error("[MCP] Starting shadcn MCP server...");
@@ -30,7 +31,7 @@ async function main() {
           listChanged: false,
         },
         experimental: {
-          // Enable notifications capability
+          // Enable notifications capability for better user feedback
           // serverNotifications: {
           //   progress: true,
           //   message: true,
@@ -40,10 +41,48 @@ async function main() {
     }
   );
 
-  const REGISTRY_URL = process.env.REGISTRY_URL ?? "http://host.docker.internal:3333/r";
-  const STYLE = process.env.STYLE ?? "new-york";
+  // Security configuration
+  const MAX_CONCURRENT_OPERATIONS = 5;
+  let activeOperations = 0;
 
-  console.log(`[MCP] Using registry URL: ${REGISTRY_URL}`);
+  // Wrapper function to enforce rate limiting
+  function withRateLimit<T extends any[], R>(fn: (...args: T) => Promise<R>) {
+    return async (...args: T): Promise<R> => {
+      if (activeOperations >= MAX_CONCURRENT_OPERATIONS) {
+        throw new Error("Too many concurrent operations. Please try again later.");
+      }
+
+      activeOperations++;
+      try {
+        return await fn(...args);
+      } finally {
+        activeOperations--;
+      }
+    };
+  }
+
+  // Validate and set the registry URL from environment with security checks
+  let REGISTRY_URL: string;
+  try {
+    const envUrl = process.env.REGISTRY_URL ?? "http://host.docker.internal:3333/r";
+    REGISTRY_URL = validateRegistryUrl(envUrl);
+    console.log(`[MCP] Using validated registry URL: ${REGISTRY_URL}`);
+  } catch (error) {
+    console.error(`[MCP] Security error - Invalid REGISTRY_URL: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`[MCP] Falling back to secure default`);
+    REGISTRY_URL = "http://host.docker.internal:3333/r"; // Safe fallback
+  }
+
+  // Validate style parameter
+  const STYLE = (() => {
+    const envStyle = process.env.STYLE ?? "new-york";
+    if (typeof envStyle === 'string' && /^[a-z-]+$/i.test(envStyle) && envStyle.length <= 50) {
+      return envStyle;
+    }
+    console.warn(`[MCP] Invalid STYLE environment variable, using default: new-york`);
+    return "new-york";
+  })();
+
   console.log(`[MCP] Using style: ${STYLE}`);
 
   // Register tools directly with MCP SDK handlers (bypassing wrapHandler due to type incompatibility)
@@ -74,7 +113,7 @@ async function main() {
       description: "Execute the full init workflow - this actually initializes the project and creates a components.json file.",
       inputSchema: executeInitOptionsSchema.shape,
     },
-    async (args, extra) => {
+    withRateLimit(async (args, extra) => {
       const result = await executeInit(args as z.infer<typeof executeInitOptionsSchema>, extra);
       return {
         content: result.content.map((c) => {
@@ -99,7 +138,7 @@ async function main() {
         structuredContent: result.structuredContent,
         isError: result.isError
       };
-    }
+    })
   );
 
   server.registerTool(
@@ -183,7 +222,7 @@ async function main() {
       description: "Execute the full add component workflow - this actually adds the component to the user's project instead of just providing instructions",
       inputSchema: executeAddOptionsSchema.shape,
     },
-    async (args, extra) => {
+    withRateLimit(async (args, extra) => {
       console.log("[MCP] execute_add start - extra", extra)
       const result = await executeAdd(args as z.infer<typeof executeAddOptionsSchema>, extra);
       return {
@@ -209,7 +248,7 @@ async function main() {
         structuredContent: result.structuredContent,
         isError: result.isError
       };
-    }
+    })
   );
 
   console.error("[MCP] Tools registered successfully");
