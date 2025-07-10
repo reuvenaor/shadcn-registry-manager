@@ -14,7 +14,7 @@ export const initOptionsSchema = z.object({
   cssVariables: z.boolean().describe("Whether to use CSS variables for theming."),
   flag: z.enum(["force", "legacy-peer-deps"]).optional().describe("Flags to pass to the package manager."),
   style: z.enum(["new-york", "default"]).describe("The style to use."),
-  skipPreflight: z.boolean().describe("Skip preflight checks."),
+  skipPreflight: z.boolean().optional().describe("Skip preflight checks."),
   tailwindBaseColor: z.enum(BASE_COLORS.map(color => color.name) as [string, ...string[]]).optional().describe("The base color for Tailwind CSS."),
   template: z
     .string()

@@ -33,7 +33,7 @@ export async function runInit(
   const initSpinner = spinner("Initializing project", extra, "runInit").start()
   let projectInfo
   let newProjectTemplate
-  if (!options.skipPreflight) {
+  if (!options?.skipPreflight) {
     const preflight = await preFlightInit(options, extra)
     if (preflight.errors[ERRORS.MISSING_DIR_OR_EMPTY_PROJECT]) {
       const { projectPath, template } = await createProject(options)
