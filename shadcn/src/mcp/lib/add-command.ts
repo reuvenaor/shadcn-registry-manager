@@ -41,13 +41,14 @@ export async function executeAddCommand(
   try {
     const validatedOptions = executeAddCommandOptionsSchema.parse(options)
     const addSpinner = spinner("Starting add command", extra, "add-command", 100).start()
+
     addSpinner.progress(0, "Starting add command")
 
-    const cwd = getSafeWorkspaceCwd(validatedOptions.cwd)
+    const cwd = getSafeWorkspaceCwd()
 
     const addOptions = addOptionsSchema.parse({
       components: validatedOptions.components,
-      cwd: path.resolve(cwd),
+      cwd: cwd,
       yes: true, // Always skip confirmation prompts in MCP context
       overwrite: validatedOptions.overwrite,
       all: false,
@@ -56,7 +57,6 @@ export async function executeAddCommand(
       cssVariables: validatedOptions.cssVariables,
       initOptions: validatedOptions.initOptions,
     })
-    console.log("[MCP] Parsed addOptions", addOptions)
 
     // Handle URL/local file components
     let itemType: z.infer<typeof registryItemTypeSchema> | undefined
@@ -67,11 +67,7 @@ export async function executeAddCommand(
     ) {
       const item = await getRegistryItem(addOptions.components[0], "")
       itemType = item?.type
-      console.log("[MCP] Registry item type", itemType)
     }
-
-    // For MCP, we always proceed with style/theme installation without prompting
-    // No need to prompt for confirmation since we're in silent mode
 
     // If no components specified, get all available components (for MCP we'll error instead)
     if (!addOptions.components?.length) {
@@ -86,9 +82,7 @@ export async function executeAddCommand(
 
     addSpinner.progress(20, "Getting project information")
 
-    console.log("[MCP] About to call getProjectInfo")
-    const projectInfo = await getProjectInfo(addOptions.cwd)
-    console.log("[MCP] Got projectInfo", projectInfo)
+    const projectInfo = await getProjectInfo(cwd)
 
     if (projectInfo?.tailwindVersion === "v4") {
       const deprecatedComponents = DEPRECATED_COMPONENTS.filter((component) =>
@@ -107,12 +101,12 @@ export async function executeAddCommand(
 
     let { errors, config } = await preFlightAdd(addOptions)
 
-    addSpinner.progress(60, "preFlightAdd complete")
+    addSpinner.progress(50, "preFlightAdd complete")
     // No components.json file. Run init automatically without prompting.
     if (errors[ERRORS.MISSING_CONFIG]) {
       addSpinner.fail("Running runInit for missing config")
       config = await runInit({
-        cwd: addOptions.cwd,
+        cwd: cwd,
         yes: addOptions.initOptions?.yes || true,
         force: addOptions.initOptions?.force || false,
         defaults: false,
@@ -121,21 +115,22 @@ export async function executeAddCommand(
         isNewProject: false,
         srcDir: addOptions.srcDir,
         cssVariables: addOptions.cssVariables || true,
-        style: addOptions.initOptions?.style || "none",
+        style: addOptions.initOptions?.style || "default",
         flag: addOptions.initOptions?.flag,
         tailwindBaseColor: addOptions.initOptions?.tailwindBaseColor,
       })
-      addSpinner.progress(70, "runInit complete")
     }
+
+    addSpinner.progress(60, "runInit complete")
 
     let shouldUpdateAppIndex = false
     if (errors[ERRORS.MISSING_DIR_OR_EMPTY_PROJECT]) {
       const { projectPath, template } = await createProjectMcp({
-        cwd: addOptions.cwd,
+        cwd: cwd,
         force: addOptions.overwrite || false,
         srcDir: addOptions.srcDir,
         components: addOptions.components,
-        style: addOptions.initOptions?.style || "none",
+        style: addOptions.initOptions?.style || "default",
         cssVariables: addOptions.cssVariables || true,
         yes: addOptions.initOptions?.yes || true,
         defaults: addOptions.initOptions?.defaults || false,
@@ -145,6 +140,7 @@ export async function executeAddCommand(
         tailwindBaseColor: addOptions.initOptions?.tailwindBaseColor,
         skipPreflight: addOptions.initOptions?.skipPreflight || false,
       }, extra)
+
       addSpinner.progress(80, "createProject complete")
 
       if (!projectPath) {
@@ -154,7 +150,7 @@ export async function executeAddCommand(
       addOptions.cwd = projectPath
 
       if (template === "next-monorepo") {
-        addOptions.cwd = path.resolve(addOptions.cwd, "apps/web")
+        addOptions.cwd = path.resolve(cwd, "apps/web")
         config = await getConfig(addOptions.cwd)
       } else {
         config = await runInit({
@@ -167,7 +163,7 @@ export async function executeAddCommand(
           isNewProject: addOptions.initOptions?.isNewProject || true,
           srcDir: addOptions.srcDir,
           cssVariables: addOptions.cssVariables || true,
-          style: addOptions.initOptions?.style || "none",
+          style: addOptions.initOptions?.style || "default",
           flag: addOptions.initOptions?.flag,
           tailwindBaseColor: addOptions.initOptions?.tailwindBaseColor,
         })
@@ -179,13 +175,11 @@ export async function executeAddCommand(
     }
 
     if (!config) {
-      console.log("[MCP] No config found after preflight and init checks.")
       throw new Error(`Failed to read or create a config at ${addOptions.cwd}.`)
     }
 
-    addSpinner.progress(60, `Adding components: ${addOptions.components?.join(", ")}`)
+    addSpinner.progress(70, `Adding components: ${addOptions.components?.join(", ")}`)
 
-    console.log("[MCP] About to call addComponents with options:", addOptions)
     const { filesCreated, filesModified } = await addComponents(
       addOptions.components,
       config,
@@ -193,7 +187,7 @@ export async function executeAddCommand(
       extra
     )
 
-    addSpinner.progress(90, "Finalizing installation")
+    addSpinner.progress(80, "Finalizing installation")
 
     // If we're adding a single component and it's from the v0 registry,
     // let's update the app/page.tsx file to import the component.
@@ -203,8 +197,6 @@ export async function executeAddCommand(
     }
 
     addSpinner.progress(100, "Installation complete!")
-
-    addSpinner.succeed("Installation complete!")
 
     return {
       success: true,

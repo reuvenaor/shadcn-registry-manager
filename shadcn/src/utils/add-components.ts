@@ -41,7 +41,7 @@ export async function addComponents(
     overwrite: false,
     silent: false,
     isNewProject: false,
-    style: "none",
+    style: "default",
     ...validatedOptions,
   }
 
@@ -60,7 +60,8 @@ export async function addComponents(
         isRemote:
           components?.length === 1 && !!components[0].match(/\/chat\/b\//),
         initOptions: options.initOptions,
-      }
+      },
+      extra
     )
     return {
       filesCreated: result.filesCreated,
@@ -77,36 +78,12 @@ async function addProjectComponents(
   options: z.infer<typeof addComponentsOptionsSchema>,
   extra?: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
-  const registrySpinner = spinner(`Checking registry.`, extra, "registry").start()
-  await extra?.sendNotification({
-    method: "notifications/message",
-    params: {
-      level: "info",
-      data: { text: "addProjectComponents start" },
-    },
-  })
+  const registrySpinner = spinner(`Checking registry.`, extra, "addProjectComponents", 5).start()
   const tree = await registryResolveItemsTree(components, config)
-
   if (!tree) {
-    await extra?.sendNotification({
-      method: "notifications/message",
-      params: {
-        level: "error",
-        data: { text: "Failed to fetch components from registry." },
-      },
-    })
-    registrySpinner?.fail()
+    registrySpinner?.fail("Failed to fetch components from registry.")
     throw new Error("Failed to fetch components from registry.")
   }
-  registrySpinner?.succeed()
-  await extra?.sendNotification({
-    method: "notifications/message",
-    params: {
-      level: "info",
-      data: { text: "addProjectComponents registryResolveItemsTree complete" },
-    },
-  })
-
   const filesModified: string[] = []
 
   const tailwindVersion = await getProjectTailwindVersionFromConfig(config)
@@ -124,6 +101,7 @@ async function addProjectComponents(
       path.relative(config.resolvedPaths.cwd, tailwindConfigUpdated)
     )
   }
+  registrySpinner?.progress(1, "Tailwind config updated")
 
   const overwriteCssVars = await shouldOverwriteCssVars(components, config)
   const cssVarsUpdated = await updateCssVars(tree.cssVars, config, {
@@ -137,6 +115,7 @@ async function addProjectComponents(
   if (cssVarsUpdated) {
     filesModified.push(path.relative(config.resolvedPaths.cwd, cssVarsUpdated))
   }
+  registrySpinner?.progress(2, "CSS vars updated")
 
   // Add CSS updater
   const cssUpdated = await updateCss(tree.css, config, {
@@ -146,6 +125,8 @@ async function addProjectComponents(
   if (cssUpdated) {
     filesModified.push(path.relative(config.resolvedPaths.cwd, cssUpdated))
   }
+
+  registrySpinner?.progress(3, "CSS updated")
 
   await updateDependencies(tree.dependencies, tree.devDependencies, config, {
     silent: options.silent,
@@ -158,9 +139,13 @@ async function addProjectComponents(
     targetDir: config.resolvedPaths.components,
   }, extra)
 
+  registrySpinner?.progress(4, "Files updated")
+
   if (tree.docs) {
     logger.info(tree.docs)
   }
+
+  registrySpinner?.succeed()
 
   return {
     filesCreated,
@@ -182,38 +167,16 @@ async function addWorkspaceComponents(
   },
   extra?: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
-  await extra?.sendNotification({
-    method: "notifications/progress",
-    params: {
-      progressToken: "add-workspace-components",
-      progress: 0,
-      message: "Starting add workspace components",
-    },
-  })
-  const registrySpinner = spinner(`Checking registry.`, extra, "registry").start()
+  const rootSpinner = spinner(`Checking registry.`, extra, "addWorkspaceComponents", 5).start()
   let registryItems = await resolveRegistryItems(components, config)
   let result = await fetchRegistry(registryItems)
   const payload = z.array(registryItemSchema).parse(result)
   if (!payload) {
-    await extra?.sendNotification({
-      method: "notifications/message",
-      params: {
-        level: "error",
-        data: { text: "Failed to fetch components from registry." },
-      },
-    })
-    registrySpinner?.fail()
+    rootSpinner?.fail("Failed to fetch components from registry.")
     throw new Error("Failed to fetch components from registry.")
   }
-  registrySpinner?.succeed()
-  await extra?.sendNotification({
-    method: "notifications/progress",
-    params: {
-      progressToken: "add-workspace-components",
-      progress: 1,
-      message: "Fetching components from registry",
-    },
-  })
+
+  rootSpinner?.progress(2, "Fetching components from registry")
 
   const registryParentMap = getRegistryParentMap(payload)
   const registryTypeAliasMap = getRegistryTypeAliasMap()
@@ -221,7 +184,8 @@ async function addWorkspaceComponents(
   const filesCreated: string[] = []
   const filesUpdated: string[] = []
   const filesSkipped: string[] = []
-  const rootSpinner = spinner(`Installing components.`, extra, "root").start()
+
+  rootSpinner?.progress(3, "Resolving components")
 
   for (const component of payload) {
     const alias = registryTypeAliasMap.get(component.type)
@@ -323,7 +287,7 @@ async function addWorkspaceComponents(
     )
   }
 
-  rootSpinner?.succeed('Installing components complete')
+  rootSpinner?.progress(4, 'Installing components complete')
 
   // Sort files.
   filesCreated.sort()
@@ -332,61 +296,31 @@ async function addWorkspaceComponents(
 
   const hasUpdatedFiles = filesCreated.length || filesUpdated.length
   if (!hasUpdatedFiles && !filesSkipped.length) {
-    await extra?.sendNotification({
-      method: "notifications/progress",
-      params: {
-        progressToken: "add-workspace-components",
-        progress: 3,
-        message: "No files updated.",
-      },
-    })
     rootSpinner?.info(`No files updated.`)
   }
 
   if (filesCreated.length) {
-    await extra?.sendNotification({
-      method: "notifications/progress",
-      params: {
-        progressToken: "add-workspace-components",
-        progress: 2,
-        message: `Created ${filesCreated.length} ${filesCreated.length === 1 ? "file" : "files"}:`,
-      },
-    })
-    rootSpinner?.succeed(`Created ${filesCreated.length} ${filesCreated.length === 1 ? "file" : "files"}`)
+    rootSpinner?.progress(5, `Created ${filesCreated.length} ${filesCreated.length === 1 ? "file" : "files"}`)
     for (const file of filesCreated) {
       logger.log(`  - ${file}`)
     }
   }
 
   if (filesUpdated.length) {
-    await extra?.sendNotification({
-      method: "notifications/progress",
-      params: {
-        progressToken: "add-workspace-components",
-        progress: 4,
-        message: `Updated ${filesUpdated.length} ${filesUpdated.length === 1 ? "file" : "files"}:`,
-      },
-    })
-    rootSpinner?.info(`Updated ${filesUpdated.length} ${filesUpdated.length === 1 ? "file" : "files"}`)
+    rootSpinner?.progress(5, `Updated ${filesUpdated.length} ${filesUpdated.length === 1 ? "file" : "files"}`)
     for (const file of filesUpdated) {
       logger.log(`  - ${file}`)
     }
   }
 
   if (filesSkipped.length) {
-    await extra?.sendNotification({
-      method: "notifications/progress",
-      params: {
-        progressToken: "add-workspace-components",
-        progress: 5,
-        message: `Skipped ${filesSkipped.length} ${filesSkipped.length === 1 ? "file" : "files"}: (use --overwrite to overwrite)`,
-      },
-    })
-    rootSpinner?.info(`Skipped ${filesSkipped.length} ${filesSkipped.length === 1 ? "file" : "files"}: (use --overwrite to overwrite)`)
+    rootSpinner?.progress(5, `Skipped ${filesSkipped.length} ${filesSkipped.length === 1 ? "file" : "files"}: (use --overwrite to overwrite)`)
     for (const file of filesSkipped) {
       logger.log(`  - ${file}`)
     }
   }
+
+  rootSpinner?.succeed()
 
   return {
     filesCreated,

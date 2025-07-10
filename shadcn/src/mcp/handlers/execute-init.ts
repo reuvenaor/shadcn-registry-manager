@@ -1,16 +1,12 @@
 import path from "path"
 import { z } from "zod"
 import { runInit } from "../lib/run-init"
-import { getProjectConfig } from "@/src/utils/get-project-info"
-import { registryItemSchema } from "@/src/registry/schema"
 import { ServerRequest, ServerNotification } from "@modelcontextprotocol/sdk/types"
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
 import { executeInitOptionsSchema } from "@/src/schemas/init.schemas"
 import { getSafeWorkspaceCwd } from "@/src/utils/security"
+import { spinner } from "@/src/utils/spinner"
 
-const projectConfigSchema = registryItemSchema.pick({
-  tailwind: true,
-})
 
 export async function executeInit(
   args: z.infer<typeof executeInitOptionsSchema>,
@@ -23,20 +19,11 @@ export async function executeInit(
   const resolvedCwd = path.resolve(cwd)
 
   try {
-    await extra?.sendNotification({
-      method: "notifications/progress",
-      params: {
-        progressToken: "init-command",
-        progress: 0,
-        total: 100,
-        message: "Initializing project configuration",
-        requestId: extra?.requestId,
-      },
-    })
+    const initSpinner = spinner("Initializing project configuration", extra, "init-command").start()
 
     const config = await runInit({
       cwd: resolvedCwd,
-      style: style ?? "none",
+      style: style ?? "default",
       baseColor: baseColor ?? "slate",
       template: template,
       srcDir: srcDir ?? false,
@@ -49,8 +36,9 @@ export async function executeInit(
       skipPreflight: false,
     }, extra)
 
-    const projectConfig = await getProjectConfig(resolvedCwd)
-    if (!projectConfig) {
+    initSpinner.succeed()
+
+    if (!config) {
       throw new Error("Failed to get project config.")
     }
 
@@ -74,7 +62,13 @@ export async function executeInit(
         success: true,
         message: "Project initialized successfully.",
         configFile: `${resolvedCwd}/components.json`,
-        config: projectConfigSchema.parse(projectConfig),
+        config: {
+          ...config,
+          tailwind: {
+            ...config.tailwind,
+            config: {},
+          },
+        },
       },
     }
   } catch (error) {

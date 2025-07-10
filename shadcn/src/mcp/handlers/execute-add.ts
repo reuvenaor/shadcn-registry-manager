@@ -12,7 +12,6 @@ export async function executeAdd(
 ) {
   const {
     components,
-    cwd: rawCwd,
     overwrite,
     srcDir,
     cssVariables,
@@ -23,17 +22,9 @@ export async function executeAdd(
     throw new Error("Components array is required and cannot be empty")
   }
 
-  const cwd = getSafeWorkspaceCwd(rawCwd)
+  const cwd = getSafeWorkspaceCwd()
 
   try {
-    console.log("[MCP] Calling executeAddCommand for execute_add", {
-      components,
-      cwd,
-      overwrite,
-      srcDir,
-      cssVariables,
-      initOptions,
-    })
     const result = await executeAddCommand(
       {
         components,
@@ -45,7 +36,6 @@ export async function executeAdd(
       },
       extra
     )
-    console.log("[MCP] executeAddCommand result:", result)
     return {
       structuredContent: result,
       content: [

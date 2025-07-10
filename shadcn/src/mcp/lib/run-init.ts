@@ -27,14 +27,13 @@ import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
 import { ServerRequest, ServerNotification } from "@modelcontextprotocol/sdk/types"
 
 export async function runInit(
-  options: z.infer<typeof initOptionsSchema> & {
-    skipPreflight?: boolean
-  },
+  options: z.infer<typeof initOptionsSchema>,
   extra?: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
+  const initSpinner = spinner("Initializing project", extra, "runInit").start()
   let projectInfo
   let newProjectTemplate
-  if (!options.skipPreflight) {
+  if (!options?.skipPreflight) {
     const preflight = await preFlightInit(options, extra)
     if (preflight.errors[ERRORS.MISSING_DIR_OR_EMPTY_PROJECT]) {
       const { projectPath, template } = await createProject(options)
@@ -101,7 +100,7 @@ export async function runInit(
       ? `${projectInfo.aliasPrefix}/lib/utils`
       : DEFAULT_UTILS
 
-    config = rawConfigSchema.parse({
+    const configToParse = {
       $schema: "https://ui.shadcn.com/schema.json",
       style: options.style,
       tailwind: {
@@ -119,32 +118,32 @@ export async function runInit(
         lib: utils.replace(/\/utils$/, ""),
         hooks: components.replace(/\/components$/, "/hooks"),
       },
-    })
+    }
+    config = rawConfigSchema.parse(configToParse)
   }
 
+  initSpinner.info("Writing components.json")
   // Write components.json.
-  const componentSpinner = spinner(`Writing components.json.`, extra, "components").start()
   const targetPath = path.resolve(options.cwd, "components.json")
   await fs.writeFile(targetPath, JSON.stringify(config, null, 2), "utf8")
-  componentSpinner.succeed()
 
   // Add components.
   const fullConfig = await resolveConfigPaths(options.cwd, config)
-  const components = [
-    ...(options.style === "none" ? [] : [options.style]),
-    ...(options.components ?? []),
-  ]
-  await addComponents(components, fullConfig, {
-    // Init will always overwrite files.
-    overwrite: true,
-    silent: options.silent,
-    style: options.style,
-    isNewProject:
-      options.isNewProject || projectInfo?.framework.name === "next-app",
-    initOptions: {
-      ...options,
-    },
-  })
+
+  if (options?.components?.length) {
+    initSpinner.info("Adding components")
+    await addComponents(options.components, fullConfig, {
+      // Init will always overwrite files.
+      overwrite: true,
+      silent: options.silent,
+      style: options.style,
+      isNewProject:
+        options.isNewProject || projectInfo?.framework.name === "next-app",
+      initOptions: {
+        ...options,
+      },
+    }, extra)
+  }
 
   // If a new project is using src dir, let's update the tailwind content config.
   // TODO: Handle this per framework.
@@ -155,9 +154,12 @@ export async function runInit(
       {
         silent: options.silent,
         content: []
-      }
+      },
+      extra
     )
   }
+
+  initSpinner.succeed()
 
   return fullConfig
 }

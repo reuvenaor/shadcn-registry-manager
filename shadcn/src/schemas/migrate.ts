@@ -13,7 +13,7 @@ export const migrations = [
 ] as const
 
 export const migrateOptionsSchema = z.object({
-  cwd: z.string().describe("The working directory. Defaults to the current directory."),
+  cwd: z.string().optional().describe("The working directory. Defaults to the current directory."),
   list: z.boolean().describe("List available migrations."),
   yes: z.boolean().describe("Skip all prompts and use default values."),
   migration: z

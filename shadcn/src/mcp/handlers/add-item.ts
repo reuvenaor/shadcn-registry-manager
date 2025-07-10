@@ -11,10 +11,10 @@ export async function addItem(
   args: z.infer<typeof addItemOptionsSchema>,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
-  const { name, cwd: rawCwd, overwrite, srcDir, cssVariables, initOptions } =
+  const { name, overwrite, srcDir, cssVariables, initOptions } =
     addItemOptionsSchema.parse(args)
 
-  const cwd = getSafeWorkspaceCwd(rawCwd)
+  const cwd = getSafeWorkspaceCwd()
 
   try {
     const addSpinner = spinner("Starting add command", extra, "add-command").start()
