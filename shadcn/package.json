@@ -1,19 +1,19 @@
 {
-  "name": "shadcn",
-  "version": "2.7.0",
+  "name": "shadcn-registry-manager",
+  "version": "1.0.0",
   "description": "Add components to your apps.",
   "publishConfig": {
-    "access": "public"
+    "access": "restricted"
   },
   "license": "MIT",
   "author": {
-    "name": "shadcn",
-    "url": "https://twitter.com/shadcn"
+    "name": "reuvenaor",
+    "url": "https://reuvenaor.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/shadcn/ui.git",
-    "directory": "packages/shadcn"
+    "url": "https://github.com/reuvenaor/shadcn-registry-manager.git",
+    "directory": "shadcn"
   },
   "files": [
     "dist"
