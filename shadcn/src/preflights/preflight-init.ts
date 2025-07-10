@@ -14,13 +14,14 @@ export async function preFlightInit(
   extra?: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
   const errors: Record<string, boolean> = {}
-
+  const projectSpinner = spinner(`Preflight checks.`, extra, "preFlightInit").start()
   // Ensure target directory exists.
   // Check for empty project. We assume if no package.json exists, the project is empty.
   if (
     !fs.existsSync(options.cwd) ||
     !fs.existsSync(path.resolve(options.cwd, "package.json"))
   ) {
+    projectSpinner?.fail(`Missing directory or empty project at ${options.cwd}.`)
     errors[ERRORS.MISSING_DIR_OR_EMPTY_PROJECT] = true
     return {
       errors,
@@ -28,19 +29,13 @@ export async function preFlightInit(
     }
   }
 
-  const projectSpinner = spinner(`Preflight checks.`, extra, "project").start()
 
   if (
     fs.existsSync(path.resolve(options.cwd, "components.json")) &&
     !options.force
   ) {
-    projectSpinner?.fail()
-    logger.break()
-    logger.error(
-      `A "components.json" file already exists at ${options.cwd}.\nTo start over, remove the "components.json" file and run "init" again.`
-    )
-    logger.break()
-    throw new Error(`A components.json file already exists at ${options.cwd}.`)
+    projectSpinner?.fail(`A "components.json" file already exists at ${options.cwd}.`)
+    throw new Error(`A "components.json" file already exists at ${options.cwd}.\nTo start over, remove the "components.json" file and run "init" again.`)
   }
 
   projectSpinner?.succeed()
@@ -63,14 +58,8 @@ export async function preFlightInit(
   frameworkSpinner?.succeed(
     `Verifying framework. Found ${projectInfo.framework.label}.`
   )
+  const tailwindSpinner = spinner("Validating Tailwind CSS.", extra, "tailwind").start()
 
-  let tailwindSpinnerMessage = "Validating Tailwind CSS."
-
-  if (projectInfo.tailwindVersion === "v4") {
-    tailwindSpinnerMessage = `Validating Tailwind CSS config. Found ${projectInfo.tailwindVersion}.`
-  }
-
-  const tailwindSpinner = spinner(tailwindSpinnerMessage, extra, "tailwind").start()
   if (
     projectInfo.tailwindVersion === "v3" &&
     (!projectInfo?.tailwindConfigFile || !projectInfo?.tailwindCssFile)

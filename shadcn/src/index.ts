@@ -66,7 +66,6 @@ async function main() {
   try {
     const envUrl = process.env.REGISTRY_URL ?? "http://host.docker.internal:3333/r";
     REGISTRY_URL = validateRegistryUrl(envUrl);
-    console.log(`[MCP] Using validated registry URL: ${REGISTRY_URL}`);
   } catch (error) {
     console.error(`[MCP] Security error - Invalid REGISTRY_URL: ${error instanceof Error ? error.message : String(error)}`);
     console.error(`[MCP] Falling back to secure default`);
@@ -82,8 +81,6 @@ async function main() {
     console.warn(`[MCP] Invalid STYLE environment variable, using default: new-york`);
     return "new-york";
   })();
-
-  console.log(`[MCP] Using style: ${STYLE}`);
 
   // Register tools directly with MCP SDK handlers (bypassing wrapHandler due to type incompatibility)
   server.registerTool(
@@ -223,7 +220,6 @@ async function main() {
       inputSchema: executeAddOptionsSchema.shape,
     },
     withRateLimit(async (args, extra) => {
-      console.log("[MCP] execute_add start - extra", extra)
       const result = await executeAdd(args as z.infer<typeof executeAddOptionsSchema>, extra);
       return {
         content: result.content.map((c) => {

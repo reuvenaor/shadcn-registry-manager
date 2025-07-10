@@ -109,16 +109,6 @@ export async function updateFiles(
     }
 
     if (existingFile && !validatedOptions.overwrite) {
-      filesCreatedSpinner.stop()
-      await extra?.sendNotification({
-        method: "notifications/message",
-        params: {
-          level: "info",
-          data: {
-            text: `The file ${fileName} already exists. Would you like to overwrite?`,
-          },
-        },
-      })
       filesCreatedSpinner?.start()
     }
 
