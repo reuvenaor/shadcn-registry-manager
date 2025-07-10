@@ -13,7 +13,6 @@ import {
   getConfig,
   rawConfigSchema,
   resolveConfigPaths,
-  // type Config,
   DEFAULT_TAILWIND_BASE_COLOR,
 } from "@/src/utils/get-config"
 import {
