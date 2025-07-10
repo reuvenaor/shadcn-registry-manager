@@ -12,7 +12,6 @@ export async function executeAdd(
 ) {
   const {
     components,
-    cwd: rawCwd,
     overwrite,
     srcDir,
     cssVariables,
@@ -23,7 +22,7 @@ export async function executeAdd(
     throw new Error("Components array is required and cannot be empty")
   }
 
-  const cwd = getSafeWorkspaceCwd(rawCwd)
+  const cwd = getSafeWorkspaceCwd()
 
   try {
     const result = await executeAddCommand(

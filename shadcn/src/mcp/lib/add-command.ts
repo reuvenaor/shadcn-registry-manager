@@ -44,11 +44,11 @@ export async function executeAddCommand(
 
     addSpinner.progress(0, "Starting add command")
 
-    const cwd = getSafeWorkspaceCwd(validatedOptions.cwd)
+    const cwd = getSafeWorkspaceCwd()
 
     const addOptions = addOptionsSchema.parse({
       components: validatedOptions.components,
-      cwd: path.resolve(cwd),
+      cwd: cwd,
       yes: true, // Always skip confirmation prompts in MCP context
       overwrite: validatedOptions.overwrite,
       all: false,
@@ -82,7 +82,7 @@ export async function executeAddCommand(
 
     addSpinner.progress(20, "Getting project information")
 
-    const projectInfo = await getProjectInfo(addOptions.cwd)
+    const projectInfo = await getProjectInfo(cwd)
 
     if (projectInfo?.tailwindVersion === "v4") {
       const deprecatedComponents = DEPRECATED_COMPONENTS.filter((component) =>
@@ -106,7 +106,7 @@ export async function executeAddCommand(
     if (errors[ERRORS.MISSING_CONFIG]) {
       addSpinner.fail("Running runInit for missing config")
       config = await runInit({
-        cwd: addOptions.cwd,
+        cwd: cwd,
         yes: addOptions.initOptions?.yes || true,
         force: addOptions.initOptions?.force || false,
         defaults: false,
@@ -120,13 +120,13 @@ export async function executeAddCommand(
         tailwindBaseColor: addOptions.initOptions?.tailwindBaseColor,
       })
     }
-    addSpinner.progress(60, "runInit complete")
 
+    addSpinner.progress(60, "runInit complete")
 
     let shouldUpdateAppIndex = false
     if (errors[ERRORS.MISSING_DIR_OR_EMPTY_PROJECT]) {
       const { projectPath, template } = await createProjectMcp({
-        cwd: addOptions.cwd,
+        cwd: cwd,
         force: addOptions.overwrite || false,
         srcDir: addOptions.srcDir,
         components: addOptions.components,
@@ -150,7 +150,7 @@ export async function executeAddCommand(
       addOptions.cwd = projectPath
 
       if (template === "next-monorepo") {
-        addOptions.cwd = path.resolve(addOptions.cwd, "apps/web")
+        addOptions.cwd = path.resolve(cwd, "apps/web")
         config = await getConfig(addOptions.cwd)
       } else {
         config = await runInit({
