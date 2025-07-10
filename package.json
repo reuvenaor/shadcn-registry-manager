@@ -1,12 +1,14 @@
 {
-  "name": "ui",
-  "version": "0.0.1",
-  "private": true,
+  "name": "shadcn-registry-manager",
+  "version": "1.0.0",
   "license": "MIT",
   "type": "module",
+  "publishConfig": {
+    "access": "restricted"
+  },
   "author": {
-    "name": "shadcn",
-    "url": "https://twitter.com/shadcn"
+    "name": "reuvenaor",
+    "url": "https://reuvenaor.com"
   },
   "workspaces": [
     "shadcn/*",
