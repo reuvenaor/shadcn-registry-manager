@@ -44,18 +44,14 @@ export async function executeAddCommand(
 
     addSpinner.progress(0, "Starting add command")
 
-    const cwd = getSafeWorkspaceCwd()
+    const cwd = getSafeWorkspaceCwd(options.cwd)
 
     const addOptions = addOptionsSchema.parse({
-      components: validatedOptions.components,
-      cwd: cwd,
+      ...validatedOptions,
+      cwd,
       yes: true, // Always skip confirmation prompts in MCP context
-      overwrite: validatedOptions.overwrite,
       all: false,
       silent: true, // Run in silent mode for MCP
-      srcDir: validatedOptions.srcDir,
-      cssVariables: validatedOptions.cssVariables,
-      initOptions: validatedOptions.initOptions,
     })
 
     // Handle URL/local file components

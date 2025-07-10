@@ -11,20 +11,15 @@ export async function addItem(
   args: z.infer<typeof addItemOptionsSchema>,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
-  const { name, overwrite, srcDir, cssVariables, initOptions } =
-    addItemOptionsSchema.parse(args)
-
-  const cwd = getSafeWorkspaceCwd()
+  const { name, ...rest } = addItemOptionsSchema.parse(args);
+  const cwd = getSafeWorkspaceCwd();
 
   try {
     const addSpinner = spinner("Starting add command", extra, "add-command").start()
     const result = await executeAddCommand({
       components: [name],
-      cwd: cwd,
-      overwrite: overwrite || false,
-      srcDir: srcDir || false,
-      cssVariables: cssVariables !== false, // default to true
-      initOptions: initOptions,
+      cwd,
+      ...rest,
     }, extra)
     addSpinner.succeed("Add command complete")
     return {
