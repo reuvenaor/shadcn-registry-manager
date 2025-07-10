@@ -48,7 +48,7 @@ export const initOptionsSchema = z.object({
 });
 
 export const executeInitOptionsSchema = z.object({
-  cwd: z.string().optional().describe("The working directory path where the project should be initialized. This is required."),
+  cwd: z.string().optional().describe("The working directory path where the project should be initialized. This is optional and will be determined automatically if not provided."),
   style: z.enum(["new-york", "default"]).optional().default("new-york").describe("The style to use for the project."),
   baseColor: z.string().optional().default("slate").describe("The base color to use for the project."),
   srcDir: z.boolean().optional().describe("Whether to use the src directory structure. Defaults to false."),

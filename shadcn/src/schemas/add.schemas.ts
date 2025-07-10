@@ -1,26 +1,29 @@
 import { z } from "zod";
 import { initOptionsField } from "./fields";
 
-export const executeAddOptionsSchema = z.object({
-  components: z.array(z.string()).describe("Array of component names to add to the project. This is required."),
-  cwd: z.string().describe("The working directory path where the project is located. This is required and must be the user's project directory."),
+// This is the base schema for "add" operations, with options common to most commands.
+// It does NOT include `cwd`.
+const addOperationBaseSchema = z.object({
   overwrite: z.boolean().optional().describe("Whether to overwrite existing files. Defaults to false."),
   srcDir: z.boolean().optional().describe("Whether to use the src directory structure. Defaults to false."),
   cssVariables: z.boolean().optional().describe("Whether to use CSS variables for theming. Defaults to true."),
   ...initOptionsField,
 });
 
-export const addItemOptionsSchema = executeAddOptionsSchema.pick({
-  cwd: true,
-  srcDir: true,
-  cssVariables: true,
-  overwrite: true,
-  initOptions: true,
-}).extend({
+// This schema is for the `execute_add` tool.
+// It extends the base schema with the `components` array and does NOT accept `cwd`.
+export const executeAddOptionsSchema = addOperationBaseSchema.extend({
+  components: z.array(z.string()).describe("Array of component names to add to the project. This is required."),
+});
+
+// This schema is for the `add_item` tool.
+// It extends the base schema with a `name` for a single component and does NOT accept `cwd`.
+export const addItemOptionsSchema = addOperationBaseSchema.extend({
   name: z.string().describe("The name of the item to add to the registry. This is required."),
 });
 
-export const addComponentsOptionsSchema = executeAddOptionsSchema.pick({
+// This schema is for the internal `addComponents` utility. It does NOT accept `cwd`.
+export const addComponentsOptionsSchema = addOperationBaseSchema.pick({
   overwrite: true,
   initOptions: true,
 }).partial().extend({
@@ -29,23 +32,14 @@ export const addComponentsOptionsSchema = executeAddOptionsSchema.pick({
   style: z.string().optional(),
 });
 
-export const executeAddCommandOptionsSchema = executeAddOptionsSchema.pick({
-  components: true,
-  cwd: true,
-  overwrite: true,
-  srcDir: true,
-  cssVariables: true,
-  initOptions: true,
+// This schema is for the internal `executeAddCommand`.
+// It extends the `executeAddOptionsSchema` and explicitly adds `cwd`, as it is required for file operations.
+export const executeAddCommandOptionsSchema = executeAddOptionsSchema.extend({
+  cwd: z.string().describe("The working directory path where the project is located. This is required and must be the user's project directory."),
 });
 
-export const addOptionsSchema = executeAddOptionsSchema.pick({
-  components: true,
-  cwd: true,
-  overwrite: true,
-  srcDir: true,
-  cssVariables: true,
-  initOptions: true,
-}).extend({
+// This is a comprehensive schema for the internal `add` command, including `cwd` and other automation flags.
+export const addOptionsSchema = executeAddCommandOptionsSchema.extend({
   yes: z.boolean().describe("Skip all prompts and use default values."),
   all: z.boolean().describe("Whether to add all components."),
   path: z.string().optional().describe("The path to add the component to."),

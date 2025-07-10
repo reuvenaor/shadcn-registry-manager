@@ -10,13 +10,7 @@ export async function executeAdd(
   args: z.infer<typeof executeAddOptionsSchema>,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) {
-  const {
-    components,
-    overwrite,
-    srcDir,
-    cssVariables,
-    initOptions,
-  } = executeAddOptionsSchema.parse(args)
+  const { components, ...rest } = executeAddOptionsSchema.parse(args);
 
   if (!components || components.length === 0) {
     throw new Error("Components array is required and cannot be empty")
@@ -28,11 +22,8 @@ export async function executeAdd(
     const result = await executeAddCommand(
       {
         components,
-        cwd: cwd,
-        overwrite: overwrite || false,
-        srcDir: srcDir || false,
-        cssVariables: cssVariables !== false, // default to true
-        initOptions,
+        cwd,
+        ...rest,
       },
       extra
     )
