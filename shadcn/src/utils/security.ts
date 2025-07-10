@@ -1,5 +1,40 @@
 import path from "path"
 import { homedir } from "os"
+import fs from "fs"
+
+/**
+ * Determines the safe working directory, prioritizing /workspace for Docker conventions
+ * and falling back to WORKSPACE_DIR for local development (e.g., via npx).
+ */
+export function getSafeWorkspaceCwd(rawCwd?: string): string {
+  const defaultCwd = "/workspace"
+  const baseCwd = rawCwd || defaultCwd
+
+  if (fs.existsSync(defaultCwd)) {
+    if (baseCwd !== defaultCwd) {
+      console.warn(
+        `[MCP] Overriding cwd from '${baseCwd}' to '${defaultCwd}' (MCP Docker convention)`
+      )
+    }
+    return defaultCwd
+  }
+
+  if (process.env.WORKSPACE_DIR) {
+    console.warn(
+      `[MCP] /workspace not found. Using WORKSPACE_DIR: ${process.env.WORKSPACE_DIR}`
+    )
+    return process.env.WORKSPACE_DIR
+  }
+
+  if (rawCwd) {
+    console.warn(
+      `[MCP] /workspace and WORKSPACE_DIR not found. Using provided cwd: '${rawCwd}'`
+    )
+    return rawCwd
+  }
+
+  throw new Error("Could not determine a safe working directory. /workspace not found and WORKSPACE_DIR is not set.")
+}
 
 /**
  * Validates that a file path is within the allowed workspace directory

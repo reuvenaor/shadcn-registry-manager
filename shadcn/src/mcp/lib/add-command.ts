@@ -16,7 +16,7 @@ import { z } from "zod"
 import { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types"
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
 import { spinner } from "@/src/utils/spinner"
-import fs from "fs"
+import { getSafeWorkspaceCwd } from "@/src/utils/security"
 
 const DEPRECATED_COMPONENTS = [
   {
@@ -43,26 +43,11 @@ export async function executeAddCommand(
     const addSpinner = spinner("Starting add command", extra, "add-command", 100).start()
     addSpinner.progress(0, "Starting add command")
 
-    if (validatedOptions.cwd !== "/workspace") {
-      if (fs.existsSync("/workspace")) {
-        console.warn(
-          `[MCP] Overriding cwd in executeAddCommand from '${validatedOptions.cwd}' to '/workspace' (MCP Docker convention)`
-        )
-        validatedOptions.cwd = "/workspace"
-      } else {
-        console.warn(
-          `[MCP] /workspace does not exist, using provided cwd '${validatedOptions.cwd}'`
-        )
-        if (!process.env.WORKSPACE_DIR) {
-          throw new Error("WORKSPACE_DIR is not set")
-        }
-        validatedOptions.cwd = process.env.WORKSPACE_DIR
-      }
-    }
+    const cwd = getSafeWorkspaceCwd(validatedOptions.cwd)
 
     const addOptions = addOptionsSchema.parse({
       components: validatedOptions.components,
-      cwd: path.resolve(validatedOptions.cwd),
+      cwd: path.resolve(cwd),
       yes: true, // Always skip confirmation prompts in MCP context
       overwrite: validatedOptions.overwrite,
       all: false,
@@ -208,8 +193,6 @@ export async function executeAddCommand(
       extra
     )
 
-
-
     addSpinner.progress(90, "Finalizing installation")
 
     // If we're adding a single component and it's from the v0 registry,
@@ -220,6 +203,7 @@ export async function executeAddCommand(
     }
 
     addSpinner.progress(100, "Installation complete!")
+
     addSpinner.succeed("Installation complete!")
 
     return {

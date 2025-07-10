@@ -6,7 +6,7 @@ import { handleError } from "@/src/utils/handle-error"
 import { logger } from "@/src/utils/logger"
 import { spinner } from "@/src/utils/spinner"
 import { secureExeca } from "@/src/utils/secure-exec"
-import { validateWorkingDirectory } from "@/src/utils/security"
+import { getSafeWorkspaceCwd } from "@/src/utils/security"
 import fs from "fs-extra"
 import { z } from "zod"
 import { initOptionsSchema } from "@/src/schemas/init.schemas"
@@ -92,7 +92,7 @@ async function createProjectInternal(
 
   // Validate and check if path is writable.
   try {
-    const safeCwd = validateWorkingDirectory(options.cwd)
+    const safeCwd = getSafeWorkspaceCwd(options.cwd)
     options.cwd = safeCwd
     await fs.access(safeCwd, fs.constants.W_OK)
   } catch (error) {
@@ -238,15 +238,6 @@ async function createMonorepoProject(
     } else {
       throw new Error(`Package manager not supported for monorepo: ${options.packageManager}`)
     }
-
-    // Try git init.
-    await secureExeca("git", ["--version"], { cwd: projectPath })
-    await secureExeca("git", ["init"], { cwd: projectPath })
-    await secureExeca("git", ["add", "-A"], { cwd: projectPath })
-    await secureExeca("git", ["commit", "-m", "Initial commit"], {
-      cwd: projectPath,
-    })
-    // Note: Removed the 'cd' command as it's not a valid executable
 
     createSpinner?.succeed('Creating a new Next.js monorepo complete')
   } catch (error) {

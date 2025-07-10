@@ -3,8 +3,8 @@ import { executeAddCommand } from "../lib/add-command"
 import path from "path"
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol"
 import { ServerRequest, ServerNotification } from "@modelcontextprotocol/sdk/types"
-import fs from "fs"
 import { executeAddOptionsSchema } from "@/src/schemas/add.schemas"
+import { getSafeWorkspaceCwd } from "@/src/utils/security"
 
 export async function executeAdd(
   args: z.infer<typeof executeAddOptionsSchema>,
@@ -23,23 +23,7 @@ export async function executeAdd(
     throw new Error("Components array is required and cannot be empty")
   }
 
-  let cwd = rawCwd
-  if (cwd !== "/workspace") {
-    if (fs.existsSync("/workspace")) {
-      console.warn(
-        `[MCP] Overriding cwd from '${cwd}' to '/workspace' (MCP Docker convention)`
-      )
-      cwd = "/workspace"
-    } else {
-      console.warn(
-        `[MCP] /workspace does not exist, using provided cwd '${rawCwd}'`
-      )
-      if (!process.env.WORKSPACE_DIR) {
-        throw new Error("WORKSPACE_DIR is not set")
-      }
-      cwd = process.env.WORKSPACE_DIR
-    }
-  }
+  const cwd = getSafeWorkspaceCwd(rawCwd)
 
   try {
     console.log("[MCP] Calling executeAddCommand for execute_add", {
