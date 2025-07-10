@@ -14,6 +14,7 @@ import {
   getItemOptionsSchema,
 } from '@/src/schemas';
 import { validateRegistryUrl } from "./utils/registry-security";
+import { getBlocks } from "./mcp/handlers/get-blocks";
 
 async function main() {
   console.error("[MCP] Starting shadcn MCP server...");
@@ -245,6 +246,27 @@ async function main() {
         isError: result.isError
       };
     })
+  );
+
+  server.registerTool(
+    "get_blocks",
+    {
+      description: "List all the available blocks from the local blocks.json file",
+      inputSchema: z.object({}).shape,
+    },
+    async (_args, _extra) => {
+      const blocks = await getBlocks();
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Blocks available:\n${blocks.map((b: { name: string }) => `- ${b.name}`).join("\n")}`,
+            _meta: {}
+          }
+        ],
+        structuredContent: { blocks }
+      };
+    }
   );
 
   console.error("[MCP] Tools registered successfully");

@@ -9,6 +9,7 @@ This MCP server exposes shadcn CLI operations as MCP tools, so you (or an AI age
 - Add components from the shadcn registry **including block components**
 - List and fetch registry items
 - Run all shadcn CLI workflows remotely
+- You can use the shadcn: https://ui.shadcn.com/r or run your **own registry server**  and add your own blocks follow this guide: https://ui.shadcn.com/docs/blocks
 
 ## Usage
 
@@ -37,12 +38,18 @@ Add the following to your `mcp.json` file:
 ```
 
 ### Mounting:
-- **your-project-path** - is the path to your project directory.
-- **workspace** - is the path to the workspace directory inside the container.
+
+- **\<your-project-path\>** - is the path to your project directory. 
+Example: `/Users/reuvennaor/Library/Projects/shadcn-registry-manager/www`
+
+- **/workspace** - is the path to the workspace directory inside the container. 
+(**Don't change it**, if you do, you must pass the same path as `cwd` param on every tool call)
 
 ### ENV Variables:
-- **REGISTRY_URL** - is the URL of the shadcn registry - https://ui.shadcn.com/r
-- **STYLE** - is the style of the shadcn registry - new-york
+- **REGISTRY_URL**  
+  - option 1: `https://ui.shadcn.com/r` - The URL of the shadcn registry
+  - option 2: `http://localhost:3000>/r` - The URL of your own registry server (follow this guide: https://ui.shadcn.com/docs/blocks)
+- **STYLE** - is the style of the shadcn registry - `new-york`
 
 
 ## Example MCP Tools
@@ -52,18 +59,27 @@ Add the following to your `mcp.json` file:
 - `get_item`: Fetch a specific registry item
 - `add_item`: Add a registry item to your project
 - `execute_add`: Add multiple components to your project
+- `get_blocks`: Get current blocks from the registry
 
-## Development
-- See `mcp.json` for all available server modes and commands.
-- The server is implemented in TypeScript under `shadcn/src/`.
-- For more on MCP, see the [Model Context Protocol documentation](https://github.com/modelcontextprotocol).
+## Example Usage
 
-## Authors
-- **Reuven Naor**
+```
+use the tool `get_blocks` to get the blocks from the registry
+```
+```
+use the tool `add_item` - dashboard-01 to your project
+```
+
+```
+use the tool `execute_add` - components: button, input
+```
+
 
 ## Source
-- **shadcn** ([shadcn/ui](https://github.com/shadcn/ui))
-- **MCP** ([Model Context Protocol](https://github.com/modelcontextprotocol))
+- **[shadcn/ui](https://github.com/shadcn/ui)**
+- **[Model Context Protocol](https://github.com/modelcontextprotocol)**
+
+made with ❤️ by **Reuven Naor**
 
 ---
 
