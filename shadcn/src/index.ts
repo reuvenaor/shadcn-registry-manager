@@ -31,13 +31,6 @@ async function main() {
         tools: {
           listChanged: false,
         },
-        experimental: {
-          // Enable notifications capability for better user feedback
-          // serverNotifications: {
-          //   progress: true,
-          //   message: true,
-          // },
-        },
       },
     }
   );
