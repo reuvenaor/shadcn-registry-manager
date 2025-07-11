@@ -13,7 +13,7 @@ This MCP server exposes shadcn CLI operations as MCP tools, so you (or an AI age
 
 ## Usage
 
-### Docker (reuvenaor/shadcn-registry-manager):
+### Docker
 
 Run the MCP server in a container, mounting your project directory:
 
@@ -37,15 +37,46 @@ Add the following to your `mcp.json` file:
     },
 ```
 
-### Mounting:
+#### Docker mounting explanation:
 
-- **\<your-project-path\>** - is the path to your project directory. 
-Example: `/Users/reuvennaor/Library/Projects/shadcn-registry-manager/www`
+- **\<your-project-path\>** - Is the path to your project directory. 
+
+  Example: `/Library/Projects/shadcn-registry-manager/www`
 
 - **/workspace** - is the path to the workspace directory inside the container. 
 (**Don't change it**, if you do, you must pass the same path as `cwd` param on every tool call)
 
-### ENV Variables:
+
+#### Docker ENV Variables:
+- **REGISTRY_URL**  
+  - option 1: `https://ui.shadcn.com/r` - The URL of the shadcn registry
+  - option 2: `http://localhost:3000>/r` - The URL of your own registry server (follow this guide: https://ui.shadcn.com/docs/blocks)
+- **STYLE** - is the style of the shadcn registry - `new-york`
+
+
+### npx
+
+You can also run the MCP server using npx, which is convenient for local development or CI/CD pipelines.
+
+Add the following to your `mcp.json` file:
+
+```json
+  "shadcn-registry-manager": {
+    "command": "npx",
+    "args": [
+      "@reuvenorg/shadcn-registry-manager"
+    ],
+    "env": {
+      "REGISTRY_URL": "https://ui.shadcn.com/r",
+      "WORKSPACE_DIR": "/Library/Projects/mcp-docker/www",
+      "STYLE": "new-york"
+    }
+  }
+```
+
+#### npx ENV Variables:
+
+- **WORKSPACE_DIR** - The path to your project directory (mounted as the workspace)
 - **REGISTRY_URL**  
   - option 1: `https://ui.shadcn.com/r` - The URL of the shadcn registry
   - option 2: `http://localhost:3000>/r` - The URL of your own registry server (follow this guide: https://ui.shadcn.com/docs/blocks)
@@ -60,6 +91,7 @@ Example: `/Users/reuvennaor/Library/Projects/shadcn-registry-manager/www`
 - `add_item`: Add a registry item to your project
 - `execute_add`: Add multiple components to your project
 - `get_blocks`: Get current blocks from the registry
+
 
 ## Example Usage
 
