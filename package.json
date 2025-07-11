@@ -1,5 +1,5 @@
 {
-  "name": "shadcn-registry-manager",
+  "name": "@reuvennaor85/shadcn-registry-manager",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -93,19 +93,8 @@
   },
   "pnpm": {
     "overrides": {
-      "got@<11.8.5": ">=11.8.5",
-      "esbuild@<=0.24.2": ">=0.25.0",
-      "vite@>=5.0.0 <5.4.16": ">=5.4.16",
-      "vite@>=5.0.0 <5.4.18": ">=5.4.18",
-      "@babel/runtime@<7.26.10": ">=7.26.10",
-      "@babel/helpers@<7.26.10": ">=7.26.10",
-      "vite@>=5.0.0 <=5.4.18": ">=5.4.19",
-      "vite@>=5.0.0 <5.4.17": ">=5.4.17",
-      "cross-spawn@<6.0.6": ">=6.0.6",
-      "cross-spawn@>=7.0.0 <7.0.5": ">=7.0.5",
-      "tar-fs@>=3.0.0 <3.0.9": ">=3.0.9",
-      "brace-expansion@>=1.0.0 <=1.1.11": ">=1.1.12",
-      "brace-expansion@>=2.0.0 <=2.0.1": ">=2.0.2"
+      "minimatch": "5.1.6",
+      "brace-expansion": "2.0.1"
     }
   }
 }
