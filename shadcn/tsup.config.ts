@@ -10,4 +10,15 @@ export default defineConfig({
   target: "esnext",
   outDir: "dist",
   treeshake: true,
+  // Add shebang for CLI entry point
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
+  // Ensure proper CommonJS handling
+  platform: "node",
+  // Don't bundle problematic dependencies
+  external: [
+    "minimatch",
+    "brace-expansion"
+  ],
 })
