@@ -1,4 +1,4 @@
-[
+export const Blocks = [
   "app-01",
   "button-01",
   "calendar-01",
