@@ -1,10 +1,10 @@
 {
-  "name": "@reuvennaor85/shadcn-registry-manager",
-  "version": "1.0.0",
+  "name": "@reuvenorg/shadcn-registry-manager",
+  "version": "1.0.1",
   "license": "MIT",
   "type": "module",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "author": {
     "name": "reuvenaor",
