@@ -5,11 +5,12 @@ This project provides an **MCP (Model Context Protocol) server** for the [shadcn
 ## What It Does
 
 This MCP server exposes shadcn CLI operations as MCP tools, so you (or an AI agent) can:
+
 - Initialize a project
 - Add components from the shadcn registry **including block components**
 - List and fetch registry items
 - Run all shadcn CLI workflows remotely
-- You can use the shadcn: https://ui.shadcn.com/r or run your **own registry server**  and add your own blocks follow this guide: https://ui.shadcn.com/docs/blocks
+- Supports both the official shadcn registry - https://ui.shadcn.com/r and **custom/self-hosted registries** follow this guide: https://ui.shadcn.com/docs/blocks
 
 ## Usage
 
