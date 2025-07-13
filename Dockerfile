@@ -12,12 +12,11 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 # Copy all package manifests for a full workspace install
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY shadcn/package.json ./shadcn/
-COPY tsconfig.json ./
+COPY tsconfig.json package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY shadcn/package.json shadcn/tsconfig.json shadcn/tsup.config.ts ./shadcn/
 
 # Install all dependencies for the shadcn workspace package
-RUN pnpm install --frozen-lockfile --filter shadcn
+RUN pnpm install --frozen-lockfile
 
 # Copy the rest of the source code
 COPY shadcn ./shadcn
@@ -46,9 +45,6 @@ COPY --from=builder /app/shadcn ./shadcn
 
 # Install pnpm globally
 RUN npm install -g pnpm
-
-# # Expose the port the app runs on
-# EXPOSE 8080
 
 # This allows pnpm to correctly link workspace packages.
 RUN pnpm install --prod
