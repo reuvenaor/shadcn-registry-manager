@@ -79,7 +79,7 @@ Add the following to your `mcp.json` file:
 - **WORKSPACE_DIR** - The path to your project directory (mounted as the workspace)
 - **REGISTRY_URL**  
   - option 1: `https://ui.shadcn.com/r` - The URL of the shadcn registry
-  - option 2: `http://localhost:3000>/r` - The URL of your own registry server (follow this guide: https://ui.shadcn.com/docs/blocks)
+  - option 2: `http://localhost:3000/r` - The URL of your own registry server (follow this guide: https://ui.shadcn.com/docs/blocks)
 - **STYLE** - is the style of the shadcn registry - `new-york`
 
 
