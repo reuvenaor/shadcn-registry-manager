@@ -5,9 +5,9 @@ import { z } from 'zod';
 
 
 function getBlockNamesFromFile(): string[] {
-  const blocksJsonPath = path.join(__dirname, 'blocks.json');
+  const blocksJsonPath = path.join(__dirname, 'blocks.ts');
   const content = fs.readFileSync(blocksJsonPath, 'utf8');
-  return JSON.parse(content);
+  return content.split('\n').filter(line => line.trim().startsWith('export const Blocks = [')).map(line => line.trim().split('export const Blocks = [')[1].trim().split(',')[0].trim());
 }
 
 function sleep(ms: number) {
