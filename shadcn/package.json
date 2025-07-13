@@ -1,15 +1,15 @@
 {
-  "name": "@reuvennaor85/shadcn-registry-manager",
+  "name": "@reuvenorg/shadcn-registry-manager",
   "version": "1.0.1",
   "description": "Add components to your apps.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "module": "./dist/index.js",
-  "publishConfig": {
-    "access": "restricted"
-  },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": {
     "name": "reuvenaor",
     "url": "https://reuvenaor.com"
