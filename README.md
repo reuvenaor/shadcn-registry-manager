@@ -75,6 +75,35 @@ Add the following to your `mcp.json` file:
   }
 ```
 
+### Claude
+
+You can also use the MCP server with Claude. Here are the configuration options:
+
+#### Claude CLI Command:
+
+```bash
+claude mcp add --scope project shadcn-registry-manager npx @reuvenorg/shadcn-registry-manager -e REGISTRY_URL=https://ui.shadcn.com/r -e WORKSPACE_DIR=/Library/Projects/resume -e STYLE=new-york
+```
+
+#### Claude .mcp.json Configuration:
+
+```json
+{
+  "shadcn-registry-manager": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "@reuvenorg/shadcn-registry-manager"
+    ],
+    "env": {
+      "REGISTRY_URL": "https://ui.shadcn.com/r",
+      "WORKSPACE_DIR": "/Library/Projects/resume",
+      "STYLE": "new-york"
+    }
+  }
+}
+```
+
 #### npx ENV Variables:
 
 - **WORKSPACE_DIR** - The path to your project directory (mounted as the workspace)
