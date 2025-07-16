@@ -27,7 +27,10 @@
     "ui",
     "tailwind",
     "radix-ui",
-    "shadcn"
+    "shadcn",
+    "mcp",
+    "mcp-server",
+    "registry"
   ],
   "exports": {
     ".": {
