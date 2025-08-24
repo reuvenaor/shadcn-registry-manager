@@ -1,6 +1,6 @@
 {
   "name": "@reuvenorg/shadcn-registry-manager",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "license": "MIT",
   "type": "module",
   "publishConfig": {
